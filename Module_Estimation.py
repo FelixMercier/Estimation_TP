@@ -164,3 +164,69 @@ def moindres_carres_GH(matA,matG,omega,vecB,flag,SigmaB=None):
     
     return Xchap,varXchap,Bchap,Vchap,Vnor,sigma02
 
+
+def Levenberg_Marquardt(X0, VecY, matA, vecB, f, df, prec=0.0000000001, P=None ):
+    """
+    X0 = vecteur des paramètres 
+    VecY = observations
+    matA = f'(x0)
+    VecB = Y - f(x0)
+    prec : stagnation de phi
+    P = Sigma_B ^-1
+    """
+    if P is None: P=np.eye(len(vecB))
+
+    N = matA.T @ P @ matA
+    K = matA.T @ P @ vecB
+    phi_x0 = vecB.T @ P @ vecB
+    
+    lambd = 0.001
+    
+    alpha = N + lambd * np.diag(N)
+    
+    dx = np.linalg.inv(alpha) @ K
+    
+    phi = (VecY - f(X0 + dx)).T @ P @ (VecY - f(X0 + dx))
+    
+    PHI = [phi_x0, phi]
+    
+    iterations = 0    
+    
+    while np.abs(PHI[0]-PHI[1]) > prec:
+        iterations += 1
+    
+        if phi >= phi_x0 : 
+            lambd *= 10
+            
+            alpha = N + lambd * np.diag(N)
+            
+            dx = np.linalg.inv(alpha) @ K
+            
+            phi = (VecY - f(X0 + dx)).T @ P @ (VecY - f(X0 + dx))
+            
+            PHI[0] = PHI[1]
+            PHI[1] = phi
+        
+        else : 
+            lambd /= 10
+            
+            X0 = X0 + dx
+            
+            N = f(X0).T @ P @ f(X0)
+            
+            K = f(X0).T @ P @ (VecY - df(X0))
+            
+            alpha = N + lambd * np.diag(N)
+            
+            dx = np.linalg.inv(alpha) @ K
+            
+            phi = (VecY - f(X0 + dx)).T @ P @ (VecY - f(X0 + dx))
+            
+            PHI[0] = PHI[1]
+            PHI[1] = phi
+        
+    return iteration, X0, 
+    
+    
+    
+    
