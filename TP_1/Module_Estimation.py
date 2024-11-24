@@ -164,68 +164,78 @@ def moindres_carres_GH(matA,matG,omega,vecB,flag,SigmaB=None):
     
     return Xchap,varXchap,Bchap,Vchap,Vnor,sigma02
 
-
-def Levenberg_Marquardt(X0, VecY, matA, vecB, f, df, prec=0.0000000001, P=None ):
-    """
-    X0 = vecteur des paramètres 
-    VecY = observations
-    matA = f'(x0)
-    VecB = Y - f(x0)
-    prec : stagnation de phi
-    P = Sigma_B ^-1
-    """
-    if P is None: P=np.eye(len(vecB))
-
-    N = matA.T @ P @ matA
-    K = matA.T @ P @ vecB
-    phi_x0 = vecB.T @ P @ vecB
+def LM(VecX, VecY, X0, f, df, prec=0.0000000001, P=None):
+    A = df(X0, VecX)
+    B = VecY - f(X0, VecX)
+    
+    if P is None : P = np.eye(len(VecY))
+    
+    phi_x0 = B.T @ P @ B
+    
+    N = A.T @ P @ A
+    K = A.T @ P @ B
     
     lambd = 0.001
+    N_augmented = N + lambd*np.diag(np.diag(N))
     
-    alpha = N + lambd * np.diag(N)
+    dx = np.linalg.solve(N_augmented, K)
     
-    dx = np.linalg.inv(alpha) @ K
+    phi = (VecY - f(X0 + dx, VecX)).T @ P @ (VecY - f(X0 + dx, VecX))
     
-    phi = (VecY - f(X0 + dx)).T @ P @ (VecY - f(X0 + dx))
+    PHI = [phi_x0[0, 0], phi[0, 0]]
     
-    PHI = [phi_x0, phi]
+    iteration = 1
+    while np.abs(PHI[0] - PHI[1]) >= prec:
+        iteration += 1
     
-    iterations = 0    
-    
-    while np.abs(PHI[0]-PHI[1]) > prec:
-        iterations += 1
-    
-        if phi >= phi_x0 : 
-            lambd *= 10
+        if PHI[1] >= PHI[0] :
+            print("ça empire...")
+            lambd *= 10 
             
-            alpha = N + lambd * np.diag(N)
+            N_augmented = N + lambd*np.diag(np.diag(N))
+            dx = np.linalg.solve(N_augmented, K)
             
-            dx = np.linalg.inv(alpha) @ K
+            phi = (VecY - f(X0 + dx, VecX)).T @ P @ (VecY - f(X0 + dx, VecX))
             
-            phi = (VecY - f(X0 + dx)).T @ P @ (VecY - f(X0 + dx))
-            
-            PHI[0] = PHI[1]
-            PHI[1] = phi
+            PHI[1]=phi[0, 0]
         
-        else : 
+        else:
+            print("ça s'améliore")
+            X0 += dx
             lambd /= 10
             
-            X0 = X0 + dx
+            A = df(X0, VecX)
+            B = VecY - f(X0, VecX)
             
-            N = f(X0).T @ P @ f(X0)
+            N = A.T @ P @ A
+            K = A.T @ P @ B
             
-            K = f(X0).T @ P @ (VecY - df(X0))
+            N_augmented = N + lambd*np.diag(np.diag(N))
+            dx = np.linalg.solve(N_augmented, K)
             
-            alpha = N + lambd * np.diag(N)
+            phi = (VecY - f(X0 + dx, VecX)).T @ P @ (VecY - f(X0 + dx, VecX))
             
-            dx = np.linalg.inv(alpha) @ K
+            phi_x0 = B.T @ P @ B
             
-            phi = (VecY - f(X0 + dx)).T @ P @ (VecY - f(X0 + dx))
-            
-            PHI[0] = PHI[1]
+            PHI[0] = phi_x0
             PHI[1] = phi
-        
-    return iteration, X0, 
+            
+            Xchap=X0
+            
+            n=len(VecY)
+            p=len(Xchap)
+            
+            Vchap = B - A@Xchap
+            
+            sigma02 = Vchap.T@P@Vchap / (n-p)
+            
+            VarXchap = sigma02*np.linalg.inv(A.T@P@A)
+            VarVchap = sigma02*(np.linalg.inv(P) - A@np.linalg.inv(A.T@P@A)@A.T)
+            
+            Vnor = np.linalg.inv(np.sqrt(np.diag(np.diag(VarVchap)))) @ Vchap
+
+    return iteration, Xchap, Vchap, VarXchap, VarVchap, Vnor
+    
     
     
     
